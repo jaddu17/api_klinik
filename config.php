@@ -1,0 +1,16 @@
+<?php
+$host = "localhost";
+$user = "root";
+$pass = "";
+$db   = "janji_temu";
+
+$conn = new mysqli($host, $user, $pass, $db);
+
+if ($conn->connect_error) {
+    http_response_code(500);
+    echo json_encode([
+        "success" => false,
+        "message" => "Koneksi database gagal"
+    ]);
+    exit;
+}
