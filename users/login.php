@@ -6,9 +6,9 @@ $data = json_decode(file_get_contents("php://input"), true);
 
 // Validasi input
 if (!$data || empty($data["username"]) || empty($data["password"])) {
+    http_response_code(400);
     echo json_encode([
-        "success" => false,
-        "message" => "Data tidak lengkap"
+        "error" => "Data tidak lengkap"
     ]);
     exit;
 }
@@ -17,34 +17,38 @@ $username = $data["username"];
 $password = $data["password"];
 
 // Prepared Statement (AMAN)
-$stmt = $conn->prepare("SELECT id_user, username, password, role FROM users WHERE username = ?");
+$stmt = $conn->prepare(
+    "SELECT id_user, username, password, role FROM users WHERE username = ?"
+);
 $stmt->bind_param("s", $username);
 $stmt->execute();
 
 $result = $stmt->get_result();
 $user = $result->fetch_assoc();
 
+// Username tidak ditemukan
 if (!$user) {
+    http_response_code(401);
     echo json_encode([
-        "success" => false,
-        "message" => "Username tidak ditemukan"
+        "error" => "Username tidak ditemukan"
     ]);
     exit;
 }
 
-// Verifikasi password
+// Password salah
 if (!password_verify($password, $user["password"])) {
+    http_response_code(401);
     echo json_encode([
-        "success" => false,
-        "message" => "Password salah"
+        "error" => "Password salah"
     ]);
     exit;
 }
 
-// Response sukses
+// ==========================
+// RESPONSE SUKSES (USER ONLY)
+// ==========================
 echo json_encode([
-    "success" => true,
-    "message" => "Login berhasil",
-    "id_user" => $user["id_user"],
+    "id_user" => (int) $user["id_user"],
+    "username" => $user["username"],
     "role" => $user["role"]
 ]);

@@ -1,0 +1,106 @@
+<?php
+header("Content-Type: application/json; charset=UTF-8");
+include '../config.php';
+
+/*
+|--------------------------------------------------------------------------
+| Validasi parameter
+|--------------------------------------------------------------------------
+*/
+if (!isset($_GET['id_janji']) || !is_numeric($_GET['id_janji'])) {
+    http_response_code(400);
+    echo json_encode([
+        "success" => false,
+        "message" => "Parameter id_janji wajib dan harus berupa angka"
+    ]);
+    exit;
+}
+
+$id_janji = (int) $_GET['id_janji'];
+
+/*
+|--------------------------------------------------------------------------
+| Query utama
+|--------------------------------------------------------------------------
+*/
+$sql = "
+SELECT
+    rm.id_rekam,
+    rm.id_janji,
+    rm.diagnosis,
+    rm.catatan,
+    rm.created_at,
+
+    p.id_pasien,
+    p.nama_pasien,
+    p.jenis_kelamin,
+    p.tanggal_lahir,
+
+    d.id_dokter,
+    d.nama_dokter
+FROM rekam_medis rm
+INNER JOIN janji_temu j ON rm.id_janji = j.id_janji
+INNER JOIN pasien p ON j.id_pasien = p.id_pasien
+INNER JOIN dokter d ON j.id_dokter = d.id_dokter
+WHERE rm.id_janji = ?
+LIMIT 1
+";
+
+/*
+|--------------------------------------------------------------------------
+| Prepare statement
+|--------------------------------------------------------------------------
+*/
+$stmt = $conn->prepare($sql);
+$stmt->bind_param("i", $id_janji);
+$stmt->execute();
+$result = $stmt->get_result();
+
+/*
+|--------------------------------------------------------------------------
+| Tidak ditemukan
+|--------------------------------------------------------------------------
+*/
+if ($result->num_rows === 0) {
+    http_response_code(404);
+    echo json_encode([
+        "success" => false,
+        "message" => "Rekam medis untuk janji ini belum tersedia"
+    ]);
+    exit;
+}
+
+$row = $result->fetch_assoc();
+
+/*
+|--------------------------------------------------------------------------
+| Response JSON
+|--------------------------------------------------------------------------
+*/
+$response = [
+    "success" => true,
+    "data" => [
+        "id_rekam"       => (int) $row["id_rekam"],
+        "id_janji"       => (int) $row["id_janji"],
+
+        "pasien" => [
+            "id_pasien"      => (int) $row["id_pasien"],
+            "nama_pasien"    => $row["nama_pasien"],
+            "jenis_kelamin"  => $row["jenis_kelamin"],
+            "tanggal_lahir"  => $row["tanggal_lahir"]
+        ],
+
+        "dokter" => [
+            "id_dokter"      => (int) $row["id_dokter"],
+            "nama_dokter"    => $row["nama_dokter"]
+        ],
+
+        "diagnosis"      => $row["diagnosis"],
+        "catatan"        => $row["catatan"],
+        "tanggal_rekam"  => $row["created_at"]
+    ]
+];
+
+echo json_encode($response, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
+$stmt->close();
+$conn->close();
